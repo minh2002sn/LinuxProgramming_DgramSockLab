@@ -1,86 +1,90 @@
 #include "client.h"
-#include "main.h"
+#include "app_config.h"
+#include "error_checker.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#define LISTEN_BACKLOG                          50
-#define BUFF_SIZE                               255
-#define SERVER_REQUEST                          "A"
+#define LOG_SOCK_INFO(name, addr)                                                                      \
+    printf("\n====================\n" name ":\n    address: %s\n    port: %d\n====================\n", \
+           inet_ntoa(addr.sin_addr), ntohs(addr.sin_port))
 
-int client_handle(int argc, char *argv[])
+typedef struct
 {
-    int port_no = 0;
-    struct sockaddr_in server_addr = {};
-    int client_fd = 0;
-    int ret = 0;
+    struct sockaddr_in addr;
+    int fd;
+} socket_t;
+static socket_t *gh_client;
 
-    /* Read port number from command line */
-    if(argc < 3)
+void client_init(const char *ip_str, int port_no)
+{
+    if (gh_client == NULL)
     {
-        printf("Not enough information are provided.\nCommand: ./server <server_address> <server_port_number>\n");
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        port_no = atoi(argv[2]);
+        gh_client = malloc(sizeof(socket_t));
     }
 
     /* Init socket */
-    client_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    ERROR_CHECK(client_fd, "socket()");
-    
+    gh_client->fd = socket(AF_INET, SOCK_DGRAM, 0);
+    ERROR_CHECK(gh_client->fd, "socket()");
+
     /* Init server address */
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port_no);
-    inet_pton(AF_INET, argv[1], &(server_addr.sin_addr));
+    gh_client->addr.sin_family = AF_INET;
+    gh_client->addr.sin_port = htons(port_no);
+    inet_pton(AF_INET, ip_str, &(gh_client->addr.sin_addr));
+
+    LOG_SOCK_INFO("Server", gh_client->addr);
+}
+
+void client_start()
+{
+    int ret = 0;
+    int recv_file_fd = 0;
+    char rx_buff[BUFF_SIZE];
+    int n = 0;
+    long unsigned int num_rx_byte = 0;
 
     /* Send request to server */
-    ret = sendto(client_fd, SERVER_REQUEST, sizeof(SERVER_REQUEST), 0,
-                (struct sockaddr *)&server_addr, sizeof(server_addr));
+    ret = sendto(gh_client->fd, NULL, 0, 0,
+                (struct sockaddr *)&gh_client->addr, sizeof(gh_client->addr));
     ERROR_CHECK(ret, "sendto()");
 
-    /* Receiving data */
-    int recv_file_fd = open("./output/recv_test.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    ERROR_CHECK(recv_file_fd, "open()");
-    char recv_test_buff[BUFF_SIZE];
-    int n;
-    while((n = read(client_fd, recv_test_buff, BUFF_SIZE)) > 0)
+    /* Open storing rx data file */
+    recv_file_fd = open(OUTPUT_FOLDER OUTPUT_FILE_NAME, O_WRONLY | O_CREAT, 0666);
+    if(recv_file_fd == -1)
     {
-        ret = write(recv_file_fd, recv_test_buff, BUFF_SIZE);
-        ERROR_CHECK(ret, "write()");
+        ret = mkdir(OUTPUT_FOLDER, 0775);
+        ERROR_CHECK(ret, "mkdir()");
+        recv_file_fd = open(OUTPUT_FOLDER OUTPUT_FILE_NAME, O_WRONLY | O_CREAT, 0666);
     }
+    ERROR_CHECK(recv_file_fd, "open()");
+
+    /* Receiving data */
+    while((n = recvfrom(gh_client->fd, rx_buff, BUFF_SIZE, 0, NULL, NULL)) > 0)
+    {
+        ret = write(recv_file_fd, rx_buff, n);
+        ERROR_CHECK(ret, "write()");
+        num_rx_byte += n;
+    }
+    ERROR_CHECK(n, "recvfrom()");
+
+    // struct stat st;
+    // ret = stat(OUTPUT_FOLDER OUTPUT_FILE_NAME, &st);
+    // ERROR_CHECK(ret, "stat()");
+    // printf("Done receive %ld bytes.\n", st.st_size);
+    printf("Done receive %ld bytes.\n", num_rx_byte);
+
+
     close(recv_file_fd);
-    printf("Done receiving.\n");
+}
 
-    /* Error checking */
-    // int test_fd = open("./input/test.txt", O_RDONLY);
-    // int m;
-    // char test_buff[BUFF_SIZE];
-    // int count = 1;
-    // int is_error = 0;
-    // while(((n = read(recv_file_fd, recv_test_buff, BUFF_SIZE)) > 0) && 
-    //         ((m = read(test_fd, test_buff, BUFF_SIZE)) > 0))
-    // {
-    //     for(int i = 0; i < n; i++)
-    //     {
-    //         if(recv_test_buff[i] != test_buff[i])
-    //         {
-    //             is_error = 1;
-    //             printf("[%d] %d -x-> %d\n", count*10 + i, test_buff[i], recv_test_buff[i]);
-    //         }
-    //     }
-    //     count++;
-    // }
-    // printf((is_error) ? "Error.\n" : "No error.\n");
-
-    /* Close server socket */
-    close(client_fd);
-
-    return 0;
+void client_deinit()
+{
+    close(gh_client->fd);
+    free(gh_client);
 }

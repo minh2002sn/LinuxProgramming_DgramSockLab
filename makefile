@@ -1,6 +1,11 @@
 # Project name, aloso name of executable file
 PROJECT_NAME = 3_TCP_Socket_Exercise
 
+# Variables
+type = 1	# 1 is server, 0 is client
+port_number = 8080
+server_address = 127.0.0.1
+
 # Folders's name
 SRC_DIR = source
 INC_DIR = include
@@ -36,13 +41,35 @@ CPPFLAGS	=	$(patsubst $(INC_DIR)/%, -I$(INC_DIR)/%, $(INC))
 #LDFLAGS		:=	-Llib
 #LDLIBS		:=	-lm
 
-# Rule build code
-all: $(EXE)
+# Help rule
+help:
 	@echo ""
-	@echo "==================== Server Command ===================="
-	@echo "./main server <port_number>"
-	@echo "==================== Client Command ===================="
-	@echo "./main client <server_ip_address> <server_port_number>"
+	@echo "========================= Server Command ========================="
+	@echo
+	@echo "Make for server using port 8080:"
+	@echo "  $$ make server"
+	@echo ""
+	@echo "Make for server with port <port_number>:"
+	@echo "  $$ make server port_number=<port_number>"
+	@echo ""
+	@echo "========================= Client Command ========================="
+	@echo ""
+	@echo "Make for client using port 8080 and server address 127.0.0.1"
+	@echo "  $$ make client"
+	@echo ""
+	@echo "Make for client using port <port_number> and server address <server_address>"
+	@echo "  $$ make server_address=<server_address> port_number=port_number"
+	@echo "=================================================================="
+
+# Rule to make for server
+server: type = 1
+server: clean $(EXE)
+	@./$(EXE) $(port_number)
+
+# Rule to make for client
+client: type = 0
+client: clean $(EXE)
+	@./$(EXE) $(server_address) $(port_number)
 
 # Rule create executable file and folder holding executable file
 $(EXE): $(OBJ)
@@ -52,17 +79,14 @@ $(EXE): $(OBJ)
 # Rule create object files and folder holding object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(OBJ_FOLDER)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSERVER_OR_CLIENT=$(type) -c $< -o $@
 
 # Clean object filess, executable files, and output files of program
 clean:
-	@$(RM) $(BIN_DIR)/* $(OBJ_DIR)/* $(OUT_DIR)/*
+	@$(RM) -f $(BIN_DIR)/* $(OBJ_DIR)/* $(OUT_DIR)/*
 
 # Rule printing variable
-print:
-	@echo $(INC)
-	@echo $(SRC)
-	@echo $(OBJ)
-	@echo $(CPPFLAGS)
+print_var-%:
+	@echo $($(subst print_var-,,$@))
 
-.PHONY: run build clean print
+.PHONY: help run build clean print server client
