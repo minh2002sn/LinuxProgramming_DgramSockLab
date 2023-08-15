@@ -1,4 +1,4 @@
-#include "server.h"
+#include "app_server.h"
 #include "app_config.h"
 #include "error_checker.h"
 #include <stdio.h>
@@ -23,7 +23,7 @@ typedef struct
 } socket_data_t;
 static socket_data_t *gh_server;
 
-void server_init(int port_no)
+void app_server_init(int port_no)
 {
     int ret = 0;
     int opt_val = 1;
@@ -52,7 +52,7 @@ void server_init(int port_no)
     }
 }
 
-void server_serve()
+void app_server_handle()
 {
     int ret = 0;
     struct sockaddr_in h_client_addr;
@@ -60,35 +60,38 @@ void server_serve()
     char rx_buff[BUFF_SIZE];
     int test_fd = 0;
     char file_buff[BUFF_SIZE];
-    int n = 0;
-    long unsigned int num_tx_byte = 0;
 
-    /* Receive request from client */
-    ret = recvfrom(gh_server->fd, rx_buff, BUFF_SIZE, 0,
-                (struct sockaddr *)&h_client_addr, (socklen_t *)&client_addr_len);
-    LOG_SOCK_INFO("Client", h_client_addr);
-    ERROR_CHECK(ret, "recvfrom()");
-
-    /* Transfer test.txt file */
-    test_fd = open(DATA_FOLDER DATA_FILE_NAME, O_RDONLY);
-    ERROR_CHECK(test_fd, "open()");
-    while((n = read(test_fd, file_buff, BUFF_SIZE)) > 0)
+    while(1)
     {
-        ret = sendto(gh_server->fd, file_buff, n, 0,
+        int n = 0;
+        long unsigned int num_tx_byte = 0;
+        /* Receive request from client */
+        ret = recvfrom(gh_server->fd, rx_buff, BUFF_SIZE, 0,
+                    (struct sockaddr *)&h_client_addr, (socklen_t *)&client_addr_len);
+        LOG_SOCK_INFO("Client", h_client_addr);
+        ERROR_CHECK(ret, "recvfrom()");
+
+        /* Transfer test.txt file */
+        test_fd = open(DATA_FOLDER DATA_FILE_NAME, O_RDONLY);
+        ERROR_CHECK(test_fd, "open()");
+        while((n = read(test_fd, file_buff, BUFF_SIZE)) > 0)
+        {
+            ret = sendto(gh_server->fd, file_buff, n, 0,
+                        (struct sockaddr *)&h_client_addr, sizeof(h_client_addr));
+            ERROR_CHECK(ret, "sendto()");
+            num_tx_byte += ret;
+        }
+        ret = sendto(gh_server->fd, NULL, 0, 0,
                     (struct sockaddr *)&h_client_addr, sizeof(h_client_addr));
-        ERROR_CHECK(ret, "sendto()");
-        num_tx_byte += ret;
+        ERROR_CHECK(n, "sendto()");
+
+        printf("Done transfer %ld bytes.\n", num_tx_byte);
+
+        close(test_fd);
     }
-    ret = sendto(gh_server->fd, NULL, 0, 0,
-                (struct sockaddr *)&h_client_addr, sizeof(h_client_addr));
-    ERROR_CHECK(n, "sendto()");
-
-    printf("Done transfer %ld bytes.\n", num_tx_byte);
-
-    close(test_fd);
 }
 
-void server_deinit()
+void app_server_deinit()
 {
     close(gh_server->fd);
     free(gh_server);

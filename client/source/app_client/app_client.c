@@ -1,4 +1,4 @@
-#include "client.h"
+#include "app_client.h"
 #include "app_config.h"
 #include "error_checker.h"
 #include <stdio.h>
@@ -22,7 +22,7 @@ typedef struct
 } socket_t;
 static socket_t *gh_client;
 
-void client_init(const char *ip_str, int port_no)
+void app_client_init(const char *ip_str, int port_no)
 {
     if (gh_client == NULL)
     {
@@ -41,7 +41,7 @@ void client_init(const char *ip_str, int port_no)
     LOG_SOCK_INFO("Server", gh_client->addr);
 }
 
-void client_start()
+void app_client_handle()
 {
     int ret = 0;
     int recv_file_fd = 0;
@@ -83,7 +83,7 @@ void client_start()
     close(recv_file_fd);
 }
 
-void client_deinit()
+void app_client_deinit()
 {
     close(gh_client->fd);
     free(gh_client);

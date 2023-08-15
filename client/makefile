@@ -1,10 +1,5 @@
 # Project name, aloso name of executable file
-PROJECT_NAME = 3_TCP_Socket_Exercise
-
-# Variables
-type = 1	# 1 is server, 0 is client
-port_number = 8080
-server_address = 127.0.0.1
+PROJECT_NAME = server
 
 # Folders's name
 SRC_DIR = source
@@ -20,7 +15,7 @@ SRC = $(wildcard $(SRC_DIR)/*/*.c)
 # Create list of object files from list of source files
 OBJ = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC))
 # Location of executable file
-EXE = $(BIN_DIR)/main
+EXE = $(BIN_DIR)/$(PROJECT_NAME)
 # List of folders holding object file
 OBJ_FOLDER = $(patsubst $(SRC_DIR)/%, $(OBJ_DIR)/%, $(wildcard $(SRC_DIR)/*))
 
@@ -41,35 +36,28 @@ CPPFLAGS	=	$(patsubst $(INC_DIR)/%, -I$(INC_DIR)/%, $(INC))
 #LDFLAGS		:=	-Llib
 #LDLIBS		:=	-lm
 
-# Help rule
+# main() argument
+address = 127.0.0.1
+port = 8080
+
+# Rule build code
+build: $(EXE) help
+
+# Rule running code
+run: build
+	@./$(EXE) $(address) $(port)
+
 help:
-	@echo ""
-	@echo "========================= Server Command ========================="
-	@echo
-	@echo "Make for server using port 8080:"
-	@echo "  $$ make server"
-	@echo ""
-	@echo "Make for server with port <port_number>:"
-	@echo "  $$ make server port_number=<port_number>"
 	@echo ""
 	@echo "========================= Client Command ========================="
 	@echo ""
-	@echo "Make for client using port 8080 and server address 127.0.0.1"
-	@echo "  $$ make client"
+	@echo "  Running client using port 8080 and server address 127.0.0.1"
+	@echo "    $$ make run"
 	@echo ""
-	@echo "Make for client using port <port_number> and server address <server_address>"
-	@echo "  $$ make server_address=<server_address> port_number=port_number"
+	@echo "  Running client using port <port> and server address <address>"
+	@echo "    $$ make run address=<address> port=<port>"
+	@echo ""
 	@echo "=================================================================="
-
-# Rule to make for server
-server: type = 1
-server: clean $(EXE)
-	@./$(EXE) $(port_number)
-
-# Rule to make for client
-client: type = 0
-client: clean $(EXE)
-	@./$(EXE) $(server_address) $(port_number)
 
 # Rule create executable file and folder holding executable file
 $(EXE): $(OBJ)
@@ -79,14 +67,17 @@ $(EXE): $(OBJ)
 # Rule create object files and folder holding object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
 	@mkdir -p $(OBJ_FOLDER)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -DSERVER_OR_CLIENT=$(type) -c $< -o $@
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
 # Clean object filess, executable files, and output files of program
 clean:
-	@$(RM) -f $(BIN_DIR)/* $(OBJ_DIR)/* $(OUT_DIR)/*
+	@$(RM) $(BIN_DIR)/* $(OBJ_DIR)/* $(OUT_DIR)/*
 
 # Rule printing variable
-print_var-%:
-	@echo $($(subst print_var-,,$@))
+print:
+	@echo $(INC)
+	@echo $(SRC)
+	@echo $(OBJ)
+	@echo $(CPPFLAGS)
 
-.PHONY: help run build clean print server client
+.PHONY: run build clean print
